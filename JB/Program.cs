@@ -13,38 +13,67 @@ namespace JB
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("enter your Build path");
-            string fileName = Console.ReadLine();
-            Console.WriteLine("Enter output path");
-            string outputPath = Console.ReadLine();
-            Directory.CreateDirectory(outputPath);
-            ModuleDefinition module = ModuleDefinition.ReadModule(fileName);
-            MethodReference decimalSub = module.ImportReference(typeof(decimal).GetMethod("op_Subtraction"));
-            var subInstruction = Instruction.Create(OpCodes.Call, decimalSub).Operand;
-            foreach (var type in module.Types)
+            try
             {
-                foreach (var method in type.Methods)
+                Console.WriteLine("enter your Build path");
+                string fileName = Console.ReadLine();
+                Console.WriteLine("Enter output path");
+                string outputPath = Console.ReadLine();
+                try
                 {
-                    if (!method.HasBody)
-                        continue;
-                    var ilProcessor = method.Body.GetILProcessor();
-                    foreach(var instruction in ilProcessor.Body.Instructions)
+                    Directory.CreateDirectory(outputPath);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error creating dirrectory " + outputPath + ". Using default dirrectory D:\\Temp");
+                    outputPath = "D:\\Temp";
+                }
+                finally
+                {
+                    ModuleDefinition module = null;
+                    try
                     {
-                        if (instruction.OpCode == OpCodes.Add)
+                        module = ModuleDefinition.ReadModule(fileName);
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        Console.WriteLine("File " + Path.GetFileName(fileName) + " doesn't exist");
+                    }
+                    MethodReference decimalSub = module.ImportReference(typeof(decimal).GetMethod("op_Subtraction"));
+                    var subInstruction = Instruction.Create(OpCodes.Call, decimalSub).Operand;
+                    foreach (var type in module.Types)
+                    {
+                        foreach (var method in type.Methods)
                         {
-                            instruction.OpCode = OpCodes.Sub;
-                        }
-                        else if (instruction.Operand != null)
-                        {
-                            if (instruction.Operand.ToString().Contains("op_Addition"))
-                                instruction.Operand = subInstruction;
+                            if (!method.HasBody)
+                                continue;
+                            var ilProcessor = method.Body.GetILProcessor();
+                            foreach (var instruction in ilProcessor.Body.Instructions)
+                            {
+                                if (instruction.OpCode == OpCodes.Add)
+                                {
+                                    instruction.OpCode = OpCodes.Sub;
+                                }
+                                else if (instruction.Operand != null)
+                                {
+                                    if (instruction.Operand.ToString().Contains("op_Addition"))
+                                        instruction.Operand = subInstruction;
+                                }
+                            }
                         }
                     }
+                    module.Write(outputPath + "\\" + Path.GetFileNameWithoutExtension(module.Name) + "_modified" + Path.GetExtension(module.Name));
+                    Console.WriteLine("Done");
                 }
             }
-            module.Write(outputPath + "\\" + Path.GetFileNameWithoutExtension(module.Name) + "_modified" + Path.GetExtension(module.Name));
-            Console.WriteLine("Done");
-            Console.ReadLine();
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.Message);
+            }
+            finally
+            {
+                Console.ReadLine();
+            }
         }
     }
 }
